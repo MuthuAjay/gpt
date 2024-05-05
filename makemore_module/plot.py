@@ -4,7 +4,9 @@ from typing import List
 
 
 class Plot:
-    def plot_activation_distribution(self,
+
+    @classmethod
+    def plot_activation_distribution(cls,
                                      layers: List[object],
                                      act_fn: object) -> None:
         """Plot the distribution of activations for layers using a specific activation function.
@@ -27,7 +29,7 @@ class Plot:
                                                                                     t.mean(),
                                                                                     t.std(),
                                                                                     (
-                                                                                        t.abs() > 0.97).float().mean()
+                                                                                            t.abs() > 0.97).float().mean()
                                                                                     * 100)
                       )
                 hy, hx = torch.histogram(t, density=True)
@@ -36,7 +38,8 @@ class Plot:
         plt.legend(legends)
         plt.title('activation distribution')
 
-    def plot_gradient_distribution(self,
+    @classmethod
+    def plot_gradient_distribution(cls,
                                    layers: List[object],
                                    act_fn: object) -> None:
         """Plot the distribution of gradients for layers using a specific activation function.
@@ -65,7 +68,8 @@ class Plot:
         plt.legend(legends)
         plt.title('gradient distribution')
 
-    def weights_gradient_distribution(self,
+    @classmethod
+    def weights_gradient_distribution(cls,
                                       parameters: List[torch.Tensor]) -> None:
         """Plot the distribution of gradients for weights.
 
@@ -88,7 +92,8 @@ class Plot:
         plt.legend(legends)
         plt.title('weights gradient distribution')
 
-    def plot_updates_to_gradients_ratio(self,
+    @classmethod
+    def plot_updates_to_gradients_ratio(cls,
                                         parameters: List[torch.Tensor],
                                         ud: List) -> None:
         """Plot the ratio of gradient updates to data.
