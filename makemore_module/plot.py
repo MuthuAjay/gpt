@@ -37,6 +37,7 @@ class Plot:
                 legends.append(f'layer {i} {layer.__class__.__name__}')
         plt.legend(legends)
         plt.title('activation distribution')
+        plt.show()
 
     @classmethod
     def plot_gradient_distribution(cls,
@@ -67,6 +68,7 @@ class Plot:
                 legends.append(f'layer {i} {layer.__class__.__name__}')
         plt.legend(legends)
         plt.title('gradient distribution')
+        plt.show()
 
     @classmethod
     def weights_gradient_distribution(cls,
@@ -91,6 +93,7 @@ class Plot:
                 legends.append(f"{i} {tuple(p.shape)}")
         plt.legend(legends)
         plt.title('weights gradient distribution')
+        plt.show()
 
     @classmethod
     def plot_updates_to_gradients_ratio(cls,
@@ -115,3 +118,4 @@ class Plot:
 
         plt.plot([0, len(ud)], [-3, -3], 'k')  # these ratios should be ~1e-3, indicate on plot
         plt.legend(legends)
+        plt.show()
