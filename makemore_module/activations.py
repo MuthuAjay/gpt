@@ -42,7 +42,7 @@ class BatchNorm1d:
             xmean = self.running_mean
             xvar = self.running_var
 
-        xhat = (x - xmean) / torch.sqrt(x.var + self.eps)  # Normalize to unit variance
+        xhat = (x - xmean) / torch.sqrt(xvar + self.eps)  # Normalize to unit variance
         self.out = self.gamma * xhat + self.beta
 
         # update the buffers
