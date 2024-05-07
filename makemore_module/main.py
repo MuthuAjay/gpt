@@ -39,11 +39,11 @@ class Main:
             ]
         else:
             layers = [
-                Linear(self.n_embd * block_size, self.n_hidden),BatchNorm1d(self.n_hidden), Tanh(),
-                Linear(self.n_hidden, self.n_hidden), BatchNorm1d(self.n_hidden),Tanh(),
-                Linear(self.n_hidden, self.n_hidden),BatchNorm1d(self.n_hidden), Tanh(),
-                Linear(self.n_hidden, self.n_hidden), BatchNorm1d(self.n_hidden),Tanh(),
-                Linear(self.n_hidden, self.n_hidden), BatchNorm1d(self.n_hidden),Tanh(),
+                Linear(self.n_embd * block_size, self.n_hidden), BatchNorm1d(self.n_hidden), Tanh(),
+                Linear(self.n_hidden, self.n_hidden), BatchNorm1d(self.n_hidden), Tanh(),
+                Linear(self.n_hidden, self.n_hidden), BatchNorm1d(self.n_hidden), Tanh(),
+                Linear(self.n_hidden, self.n_hidden), BatchNorm1d(self.n_hidden), Tanh(),
+                Linear(self.n_hidden, self.n_hidden), BatchNorm1d(self.n_hidden), Tanh(),
                 Linear(self.n_hidden, vocab_size), BatchNorm1d(vocab_size)
             ]
 
@@ -78,7 +78,9 @@ class Main:
 
     def __call__(self,
                  block_size: int = 3,
-                 max_steps : int = 100):
+                 max_steps: int = 100,
+                 lr: float = 0.1,
+                 weight_init: List = [0.1, 5 / 3]):
         dataset = Dataset(path=r'C:\Users\CD138JR\Documents\GitHub\gpt\names.txt',
                           block_size=3)
         Xtr, Ytr, Xdev, Ydev, Xte, Yte = dataset.get_dataset()
@@ -87,7 +89,9 @@ class Main:
                                              n_embd=self.n_embd)
         layers = self.instantiate_layers(block_size=3,
                                          vocab_size=vocab_size)
-        layers = self.initialize_weights(layers=layers)
+        layers = self.initialize_weights(layers=layers,
+                                         final_layer_weights=weight_init[0],
+                                         other_weights=weight_init[1])
         parameters = self.parameters(layers=layers)
         train = Train(batch_size=32,
                       lr=0.1,
@@ -107,10 +111,19 @@ class Main:
 
 
 if __name__ == "__main__":
-    add_norm = [False, True]
+    add_norm_values = [False, True]
+    learning_rates = [0.1, 0.01]
+    weight_initializations = [[0.1, 1.1], [0.2, 1.2], [0.5, 2]]
 
-    for val in add_norm:
-        main = Main(n_embd=10,
-                    n_hidden=100,
-                    add_norm=val)
-        main(max_steps= 1000)
+    for add_norm_val in add_norm_values:
+        for lr in learning_rates:
+            for weight_init in weight_initializations:
+                main = Main(n_embd=10,
+                            n_hidden=100,
+                            add_norm=add_norm_val)
+                train_settings = {
+                    'lr': lr,
+                    'weight_init': weight_init
+                }
+                print(f"Training with add_norm={add_norm_val}, lr={lr}, weight_init={weight_init}")
+                main(max_steps=1000, **train_settings)
