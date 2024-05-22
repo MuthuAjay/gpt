@@ -20,7 +20,7 @@ class Train:
                  parameters: List,
                  Xtr,
                  Ytr,
-                 C):
+                 ):
         # same optimization as the last time
         lossi = []
         ud = []  # update to data ratio that is udpate to the gradient to the data ratio
