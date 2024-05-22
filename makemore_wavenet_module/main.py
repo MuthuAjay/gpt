@@ -55,6 +55,7 @@ class Main:
                     block_size /= 2
                 else:
                     block_size = 0
+
         print(layer_count)
         return layer_count
 
@@ -65,10 +66,10 @@ class Main:
         num_layers = self._layers_count(block_size, wavnet_dim)
         for i in range(num_layers):
             if i == 0:
-                layers = layers + [FlattenConsecutive(2), Linear(self.n_embd * 2, self.n_hidden, bias=False),
+                layers = layers + [FlattenConsecutive(wavnet_dim), Linear(self.n_embd * 2, self.n_hidden, bias=False),
                                    BatchNorm1d(self.n_hidden), Tanh()]
             else:
-                layers += [FlattenConsecutive(2), Linear(self.n_hidden * 2, self.n_hidden, bias=False),
+                layers += [FlattenConsecutive(wavnet_dim), Linear(self.n_hidden * 2, self.n_hidden, bias=False),
                            BatchNorm1d(self.n_hidden), Tanh()]
         print(len(layers))
         return layers
@@ -125,6 +126,6 @@ if __name__ == "__main__":
     #     'weight_init': weight_init
     # }
     main(
-        block_size=32,
+        block_size=8,
         max_steps=1000
     )
