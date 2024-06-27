@@ -68,13 +68,18 @@ class Tokenizer:
         self.special_tokens = {}
         self.vocab = self.build_vocab()
 
-    def train(self):
+    def train(self,
+              text: str,
+              vocab_size: int,
+              verbose=False):
         raise NotImplementedError
 
-    def encode(self):
+    def encode(self,
+               text: str):
         raise NotImplementedError
 
-    def decode(self):
+    def decode(self,
+               ids: Optional[List[int]]) -> str:
         raise NotImplementedError
 
     def build_vocab(self):
