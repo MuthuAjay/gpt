@@ -134,3 +134,36 @@ class Tokenizer:
                     f.write(f"[{s0}][{s1}] -> [{s}] {idx}\n")
                 else:
                     f.write(f"[{s}] {idx}\n")
+
+    def load(self, model_file):
+        """
+        Inverse of save() but only for the model file
+        :param model_file:
+        :return:
+        """
+        assert model_file.endswith(".model")
+        # read the model file
+        merges = {}
+        special_tokens = {}
+        idx = 256
+
+        with open(model_file, 'r', encoding='utf-8') as f:
+            # read the version
+            version = f.readline().strip()
+            assert version == "minbpe v1"
+            # read the special tokens
+            self.pattern = f.readline().strip()
+            # read the special tokens
+            num_special = int(f.readline().strip())
+            for _ in range(num_special):
+                special, special_idx = f.readline().strip().split()
+                special_tokens[special] = int(special_idx)
+            # read the merges
+            for line in f:
+                idx1, idx2 = map(int, line.split())
+                merges[(idx1, idx2)] = idx
+                idx += 1
+
+        self.merges = merges
+        self.special_tokens = special_tokens
+        self.vocab = self.build_vocab()
