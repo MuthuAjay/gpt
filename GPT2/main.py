@@ -8,7 +8,7 @@ import requests
 # hyperparameters
 batch_size = 32
 block_size = 64
-max_iters = 5000
+max_iters = 1000
 eval_interval = 100
 learning_rate = 1e-3
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -30,6 +30,7 @@ if not os.path.exists("input.txt"):
 with open("input.txt", "r", encoding="utf-8") as f:
     text = f.read()
 
+text = text.replace('$', " ")
 # here are all the unique charaters that occur in this text
 chars = sorted(list(set(text)))
 vocab_size = len(chars)
