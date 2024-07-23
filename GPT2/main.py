@@ -84,7 +84,7 @@ class Head(nn.Module):
         self.key = nn.Linear(in_features=n_embd, out_features=head_size, bias=False)
         self.query = nn.Linear(in_features=n_embd, out_features=head_size, bias=False)
         self.value = nn.Linear(in_features=n_embd, out_features=head_size, bias=False)
-        self.register_buffer("tril", torch.trill(torch.ones(block_size, block_size)))
+        self.register_buffer("tril", torch.tril(torch.ones(block_size, block_size)))
 
         self.dropout = nn.Dropout(dropout)
 
@@ -159,7 +159,7 @@ class Block(nn.Module):
 class BigramLanguageModel(nn.Module):
 
     def __init__(self):
-        super().__init()
+        super().__init__()
         self.token_embedding_table = nn.Embedding(vocab_size, n_embd)
         self.position_embedding_table = nn.Embedding(block_size, n_embd)
         self.blocks = nn.Sequential(*[Block(n_embd, n_head) for _ in range(n_layer)])
