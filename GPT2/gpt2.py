@@ -38,7 +38,7 @@ class MLP(nn.Module):
 
 class Block(nn.Module):
 
-    def __ini__(self, config):
+    def __init__(self, config):
         super().__init__()
         self.ln_1 = nn.LayerNorm(config.n_embd)
         self.attn = CasualSelfAttention(config)
@@ -113,6 +113,8 @@ class GPTConfig:
     n_layer: int = 12
     n_head: int = 12
     n_embd: int = 756
+    bias: bool = True
+    dropout: float = 0.0
 
 
 class GPT(nn.Module):
@@ -187,6 +189,8 @@ class GPT(nn.Module):
         if "dropout" in override_args:
             print(f"overriding dropout rate to {override_args['dropout']}")
             config_args["dropout"] = override_args["dropout"]
+
+        print(config_args)
         # create a from-scratch initialized minGPT model
         config = GPTConfig(**config_args)
         model = GPT(config)
@@ -232,3 +236,48 @@ class GPT(nn.Module):
                     sd[k].copy_(sd_hf[k])
 
         return model
+
+
+# --------------------------------------------------------------------
+num_return_sequences = 5
+max_length = 30
+
+model = GPT.from_pretrained("gpt2", override_args={"dropout": 0.1})
+model.eval()
+model = model.to(device)
+
+# prefix tokens
+import tiktoken
+enc = tiktoken.get_encoding("gpt2")
+tokens = enc.encode("Hello, I'm a language model")
+tokens = torch.tensor(tokens, dtype=torch.long) # (8,)
+tokens = tokens.unsqueeze(0).repeat(num_return_sequences, 1).to(device) # (5, 8)
+x = tokens.to(device)
+
+# generate ! right now x is (B, T) where B = 5 and T = 8
+torch.manual_seed(42)
+torch.cuda.manual_seed(42)
+while x.size(1) < max_length:
+    with torch.no_grad():
+        logits = model(x) # (B, T, vocab_size)
+        # take the logits at the last position
+        logits = logits[:,-1,:] # (B, vocab_size)
+        # get the probabilities
+        probs = F.softmax(logits, dim=-1)
+        # do the top k sampling of 50 (hugging face uses 50 - default)
+        # topk_probs here becomes (5, 50), topk_indices is (5, 50)
+        topk_probs, topk_indices = torch.topk(probs, 50, dim=-1)
+        # sample from the top k
+        ix = torch.multinomial(topk_probs,1)
+        # gather the corredsponding indices
+        xcol = torch.gather(topk_indices, -1, ix)
+        # append to the sequence
+        x = torch.cat((x, xcol), dim=1)
+        
+# print the generated text
+
+for i in range(num_return_sequences):
+    generated = enc.decode(x[i:max_length].tolist())
+    print(generated)
+    print("="*80)
+        
