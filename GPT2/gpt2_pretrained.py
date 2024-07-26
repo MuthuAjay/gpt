@@ -277,7 +277,7 @@ while x.size(1) < max_length:
 # print the generated text
 
 for i in range(num_return_sequences):
-    generated = enc.decode(x[i:max_length].tolist())
+    generated = enc.decode(x[i,:max_length].tolist())
     print(generated)
     print("="*80)
-        
+    
