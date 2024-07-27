@@ -6,7 +6,7 @@ from torch.nn import functional as F
 import requests
 from dataclasses import dataclass
 from torch.nn.parallel import DistributedDataParallel as DDP
-
+import time
 
 # hyperparameters
 batch_size = 64
@@ -28,6 +28,7 @@ class MLP(nn.Module):
         self.c_fc = nn.Linear(config.n_embd, config.n_embd * 4)
         self.gelu = nn.GELU()
         self.c_proj = nn.Linear(config.n_embd * 4, config.n_embd)
+        self.c_proj.NANOGPT_SCALE_INIT = 1
 
     def forward(self, x: torch.Tensor):
         x = self.c_fc(x)
@@ -60,6 +61,9 @@ class CasualSelfAttention(nn.Module):
         self.c_attn = nn.Linear(config.n_embd, config.n_embd * 3)
         # output projection
         self.c_proj = nn.Linear(config.n_embd, config.n_embd)
+        self.c_proj.NANOGPT_SCALE_INIT = (
+            1  # this is because of the increasing variance due to residual connections
+        )
 
         # regularization
         self.n_head = config.n_head
@@ -180,20 +184,23 @@ class GPT(nn.Module):
             )
         )
         self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=False)
-        
-        # weight sharing scheme 
+
+        # weight sharing scheme
         self.transformer.wte.weight = self.lm_head.weight
-        
-        # init params 
+
+        # init params
         self.apply(self._init_weights)
-        
+
     def _init_weights(self, module):
         if isinstance(module, nn.Linear):
-            torch.nn.init.normal_(module.weight,mean = 0.0,  std=0.02)
+            std = 0.02
+            if hasattr(module, "NANOGPT_SCALE_INIT"):
+                std *= (2 * self.config.n_layer) ** -0.5 # here 2 is beacuse of 2 residual connections from attn and mlp
+            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
             if module.bias is not None:
                 torch.nn.init.zeros_(module.bias)
         elif isinstance(module, nn.Embedding):
-            torch.nn.init.normal_(module.weight, mean=0.0 ,std=0.02)
+            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
 
     def forward(self, idx, targets=None):
         # idx is of shape (batch_size, block_size) -> (B, T)
@@ -317,6 +324,8 @@ print("Using device:", device)
 # get a data loader
 train_loader = DataLoaderLite(B=4, T=32)
 
+torch.set_float32_matmul_precision("high")
+
 
 num_return_sequences = 5
 max_length = 30
@@ -324,19 +333,30 @@ max_length = 30
 # model = GPT.from_pretrained("gpt2", override_args={"dropout": 0.1})
 model = GPT(GPTConfig())
 model = model.to(device)
+model = torch.compile(model)
 # logits, loss = model(x,y)
 
 # optimize !
 optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4)
 for i in range(50):
+    t0 = time.time()
     x, y = train_loader.next_batch()
     optimizer.zero_grad()
+    # with torch.autocast(device_type=device, dtype=torch.bfloat16): # use this only in A100 GPUs
+    #     logits, loss = model(x, y)
+    #     loss.backward()
     logits, loss = model(x, y)
     loss.backward()
     optimizer.step()
     print(f"step {i} loss: {loss.item()}")
+    t1 = time.time()
+    dt = (t1 - t0)*1000 # in milliseconds
+    tokens_per_sec = (train_loader.B * train_loader.T) / (t1 - t0)
+    print(f" step {i}, loss: {loss.item()}, dt: {dt:.2f}s, tokens/sec: {tokens_per_sec:.2f}")
 
-import sys; sys.exit(0)
+import sys
+
+sys.exit(0)
 
 # prefix tokens
 
