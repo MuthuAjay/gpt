@@ -336,13 +336,13 @@ num_return_sequences = 5
 max_length = 30
 
 # model = GPT.from_pretrained("gpt2", override_args={"dropout": 0.1})
-model = GPT(GPTConfig())
+model = GPT(GPTConfig(vocab_size=50304))  # change vocab size to 50304 -> power of 2
 model = model.to(device)
 model = torch.compile(model)
 # logits, loss = model(x,y)
 
 # optimize !
-optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4)
+optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4, betas=(0.9, 0.95), eps=1e-8)
 for i in range(50):
     t0 = time.time()
     x, y = train_loader.next_batch()
@@ -352,13 +352,14 @@ for i in range(50):
     #     loss.backward()
     logits, loss = model(x, y)
     loss.backward()
+    norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0) 
     optimizer.step()
     print(f"step {i} loss: {loss.item()}")
     t1 = time.time()
     dt = (t1 - t0) * 1000  # in milliseconds
     tokens_per_sec = (train_loader.B * train_loader.T) / (t1 - t0)
     print(
-        f" step {i}, loss: {loss.item()}, dt: {dt:.2f}s, tokens/sec: {tokens_per_sec:.2f}"
+        f" step {i} | loss: {loss.item()} | norm:{norm} |dt: {dt:.2f}s | tokens/sec: {tokens_per_sec:.2f}"
     )
 
 import sys
