@@ -1,3 +1,4 @@
+import inspect
 import math
 import os
 import torch
@@ -315,6 +316,30 @@ class GPT(nn.Module):
                     sd[k].copy_(sd_hf[k])
 
         return model
+    
+    def configure_optimizers(self,weight_decay=0.1, learning_rate=1e-3, device="cuda"):
+        
+        # start with all the candidate parameters that requires grad
+        param_dict = {pn: p for pn, p in self.named_parameters() if p.requires_grad}
+        # create optim groups any parameter that is 2d will be weight decayed, or else No
+        # i.e all the weight tensors in matmuls + embeddings will be weight decayed, all biases and layernorm don't
+        decay_params = [p for n, p in param_dict.items() if len(p.shape) >= 2]
+        nodecay_params = [p for n, p in param_dict.items() if len(p.shape) < 2]
+        optim_groups = [
+            {'params': decay_params, 'weight_decay': weight_decay},
+            {'params': nodecay_params, 'weight_decay': 0.0}
+        ]
+        num_decay_params = sum(p.numel() for p in decay_params)
+        num_nodecay_params = sum(p.numel() for p in nodecay_params)
+        print(f"num decayed parameter tensors: {len(decay_params)}, with {num_decay_params} parameters")
+        print(f"num non-decayed parameter tensors: {len(nodecay_params)}, with {num_nodecay_params} parameters")
+        # create the AdamW optimizer and use the fused version if possible
+        fused_available = "fused" in inspect.signature(torch.optim.AdamW).parameters
+        use_fuse = fused_available and "cuda" in device
+        print(f"using fused AdamW: {use_fuse}")
+        optimizer = torch.optim.AdamW(optim_groups, lr=learning_rate, betas=(0.9, 0.95), eps=1e-8, weight_decay=0.0)
+        return optimizer
+        
 
 
 # --------------------------------------------------------------------
@@ -341,9 +366,29 @@ model = model.to(device)
 model = torch.compile(model)
 # logits, loss = model(x,y)
 
+max_lr = 6e-4
+min_lr = max_lr * 0.1
+warmup_steps = 50
+max_steps = 50
+
+def get_lr(it):
+    # 1) linear warmup for warmyp_iter steps
+    if it < warmup_steps:
+        return max_lr *(it +1) / warmup_steps
+    # 2) if it > lr_decay_iters ,return min_lr
+    if it > max_steps:
+        return min_lr
+    # 3 in between, do the cosine decay down to min_lr
+    decay_ratio = (it - warmup_steps) / (max_steps - warmup_steps)
+    assert 0 <= decay_ratio <= 1
+    coef = 0.5 * (1.0 + math.cos(math.pi * decay_ratio)) # coef starts at 1 and goes to 0
+    return min_lr + coef * (max_lr - min_lr)
+    
+
 # optimize !
 optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4, betas=(0.9, 0.95), eps=1e-8)
-for i in range(50):
+
+for step in range(max_steps):
     t0 = time.time()
     x, y = train_loader.next_batch()
     optimizer.zero_grad()
@@ -353,13 +398,15 @@ for i in range(50):
     logits, loss = model(x, y)
     loss.backward()
     norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0) 
+    lr = get_lr(step)
+    for param_group in optimizer.param_groups:
+        param_group["lr"] = lr
     optimizer.step()
-    print(f"step {i} loss: {loss.item()}")
     t1 = time.time()
     dt = (t1 - t0) * 1000  # in milliseconds
     tokens_per_sec = (train_loader.B * train_loader.T) / (t1 - t0)
     print(
-        f" step {i} | loss: {loss.item()} | norm:{norm} |dt: {dt:.2f}s | tokens/sec: {tokens_per_sec:.2f}"
+        f" step {step} | loss: {loss.item()} | lr {lr} | norm:{norm} |dt: {dt:.2f}s | tokens/sec: {tokens_per_sec:.2f}"
     )
 
 import sys
