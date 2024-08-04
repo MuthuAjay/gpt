@@ -13,7 +13,7 @@ import time
 batch_size = 64
 block_size = 256
 max_iters = 1000
-eval_interval = 100
+eval_interval = 100                                                                                 
 learning_rate = 1e-3
 device = "cuda" if torch.cuda.is_available() else "cpu"
 eval_iters = 200
@@ -316,9 +316,9 @@ class GPT(nn.Module):
                     sd[k].copy_(sd_hf[k])
 
         return model
-    
-    def configure_optimizers(self,weight_decay=0.1, learning_rate=1e-3, device="cuda"):
-        
+
+    def configure_optimizers(self, weight_decay=0.1, learning_rate=1e-3, device="cuda"):
+
         # start with all the candidate parameters that requires grad
         param_dict = {pn: p for pn, p in self.named_parameters() if p.requires_grad}
         # create optim groups any parameter that is 2d will be weight decayed, or else No
@@ -326,20 +326,25 @@ class GPT(nn.Module):
         decay_params = [p for n, p in param_dict.items() if len(p.shape) >= 2]
         nodecay_params = [p for n, p in param_dict.items() if len(p.shape) < 2]
         optim_groups = [
-            {'params': decay_params, 'weight_decay': weight_decay},
-            {'params': nodecay_params, 'weight_decay': 0.0}
+            {"params": decay_params, "weight_decay": weight_decay},
+            {"params": nodecay_params, "weight_decay": 0.0},
         ]
         num_decay_params = sum(p.numel() for p in decay_params)
         num_nodecay_params = sum(p.numel() for p in nodecay_params)
-        print(f"num decayed parameter tensors: {len(decay_params)}, with {num_decay_params} parameters")
-        print(f"num non-decayed parameter tensors: {len(nodecay_params)}, with {num_nodecay_params} parameters")
+        print(
+            f"num decayed parameter tensors: {len(decay_params)}, with {num_decay_params} parameters"
+        )
+        print(
+            f"num non-decayed parameter tensors: {len(nodecay_params)}, with {num_nodecay_params} parameters"
+        )
         # create the AdamW optimizer and use the fused version if possible
         fused_available = "fused" in inspect.signature(torch.optim.AdamW).parameters
         use_fuse = fused_available and "cuda" in device
         print(f"using fused AdamW: {use_fuse}")
-        optimizer = torch.optim.AdamW(optim_groups, lr=learning_rate, betas=(0.9, 0.95), eps=1e-8, weight_decay=0.0)
+        optimizer = torch.optim.AdamW(
+            optim_groups, lr=learning_rate, betas=(0.9, 0.95), eps=1e-8, fused=use_fuse
+        )
         return optimizer
-        
 
 
 # --------------------------------------------------------------------
@@ -371,22 +376,26 @@ min_lr = max_lr * 0.1
 warmup_steps = 50
 max_steps = 50
 
+
 def get_lr(it):
     # 1) linear warmup for warmyp_iter steps
     if it < warmup_steps:
-        return max_lr *(it +1) / warmup_steps
+        return max_lr * (it + 1) / warmup_steps
     # 2) if it > lr_decay_iters ,return min_lr
     if it > max_steps:
         return min_lr
     # 3 in between, do the cosine decay down to min_lr
     decay_ratio = (it - warmup_steps) / (max_steps - warmup_steps)
     assert 0 <= decay_ratio <= 1
-    coef = 0.5 * (1.0 + math.cos(math.pi * decay_ratio)) # coef starts at 1 and goes to 0
+    coef = 0.5 * (
+        1.0 + math.cos(math.pi * decay_ratio)
+    )  # coef starts at 1 and goes to 0
     return min_lr + coef * (max_lr - min_lr)
-    
+
 
 # optimize !
-optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4, betas=(0.9, 0.95), eps=1e-8)
+# optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4, betas=(0.9, 0.95), eps=1e-8)
+optimizer = model.configure_optimizers(weight_decay = 0.1 ,learning_rate=6e-4, device=device)
 
 for step in range(max_steps):
     t0 = time.time()
@@ -397,7 +406,7 @@ for step in range(max_steps):
     #     loss.backward()
     logits, loss = model(x, y)
     loss.backward()
-    norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0) 
+    norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
     lr = get_lr(step)
     for param_group in optimizer.param_groups:
         param_group["lr"] = lr
