@@ -1,0 +1,2 @@
+minbpe v1
+patterns
