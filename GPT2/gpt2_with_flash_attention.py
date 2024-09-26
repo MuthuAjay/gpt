@@ -135,12 +135,14 @@ class DataLoaderLite:
         self.T = T
         text = self.download_data()
         enc = tiktoken.get_encoding("gpt2")
+        self.enc = tiktoken.get_encoding("gpt2")
         tokens = enc.encode(text)
         self.tokens = torch.tensor(tokens, dtype=torch.long)
         print(f"loaded text of length {len(self.tokens)} tokens")
         print(f"1 epoch = {len(self.tokens) // (B * T)} batches")
         # state
         self.current_position = 0
+        
 
     def download_data(self):
         torch.manual_seed(1337)
@@ -420,14 +422,14 @@ for step in range(max_steps):
 
 import sys
 
-sys.exit(0)
+# sys.exit(0)
 
 # prefix tokens
 
-tokens = enc.encode("Hello, I'm a language model")
-tokens = torch.tensor(tokens, dtype=torch.long)  # (8,)
-tokens = tokens.unsqueeze(0).repeat(num_return_sequences, 1).to(device)  # (5, 8)
-x = tokens.to(device)
+# tokens = enc.encode("Hello, I'm a language model")
+# tokens = torch.tensor(tokens, dtype=torch.long)  # (8,)
+# tokens = tokens.unsqueeze(0).repeat(num_return_sequences, 1).to(device)  # (5, 8)
+# x = tokens.to(device)
 
 # generate ! right now x is (B, T) where B = 5 and T = 8
 torch.manual_seed(42)
@@ -452,6 +454,6 @@ while x.size(1) < max_length:
 # print the generated text
 
 for i in range(num_return_sequences):
-    generated = enc.decode(x[i, :max_length].tolist())
+    generated = train_loader.enc.decode(x[i, :max_length].tolist())
     print(generated)
     print("=" * 80)
